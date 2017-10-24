@@ -1,13 +1,12 @@
 from gensim.models import word2vec
 import xml.dom.minidom
 import os
-# import util
 import numpy as py
 
 model = word2vec.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
-print(model['world'])
+print(model.wv['world'])
 
-
+print(model.wv.most_similar(positive=['woman', 'king'], negative=['man']))
 
 
 
