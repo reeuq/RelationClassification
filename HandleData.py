@@ -1,23 +1,34 @@
 from gensim.models import word2vec
 import xml.dom.minidom
 import os
+import string
 import numpy as py
 
-model = word2vec.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
-print(model.wv['world'])
+model = word2vec.KeyedVectors.load_word2vec_format('./resource/GoogleNews-vectors-negative300.bin', binary=True)
 
-print(model.wv.most_similar(positive=['woman', 'king'], negative=['man']))
+dom = xml.dom.minidom.parse('./resource/1.1.text.xml')
+root = dom.documentElement
 
+entities = root.getElementsByTagName("entity")
+allCount = 0
+errorMsg = []
+errorCount = 0
+allSets = set()
+words = []
+for entity in entities:
+    punc = string.punctuation.replace('-','').replace('/','')
+    entity = entity.firstChild.data.translate(str.maketrans('/-', '  ', punc))
+    words.extend(entity.split())
+    # allSets.update(words)
+for oneWord in words:
+    allCount+=1
+    print(oneWord)
+    try:
+        print(model.wv[oneWord])
+    except Exception:
+        errorCount+=1
+        errorMsg.append(oneWord)
 
-
-# dom = xml.dom.minidom.parse('1.1.text.xml')
-# root = dom.documentElement
-#
-# tt = root.getElementsByTagName("doc")
-# t = tt[0]
-# print(t.childNodes[0].data)
-# ss = t.getElementsByTagName("entity")
-# s = ss[0]
-# print(s.firstChild.data)
-# # sentences = word2vec.LineSentence(u"/home/wyd/PycharmProjects/RelationClassification")  # 加载语料
-# # model = word2vec.Word2Vec(sentences, size=200)
+print(allCount)
+print(errorCount)
+print(errorMsg)
