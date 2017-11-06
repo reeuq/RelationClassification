@@ -1,6 +1,6 @@
 from six.moves import cPickle as pickle
 
-with open('./resource/vec.pickle', 'rb') as f:
+with open('./../resource/vec.pickle', 'rb') as f:
     save = pickle.load(f)
     dataset = save['dataset']
     label = save['label']
