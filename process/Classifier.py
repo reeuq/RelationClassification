@@ -4,6 +4,8 @@ import numpy as np
 import tensorflow as tf
 
 from six.moves import cPickle as pickle
+from evaluation.Evaluation import accuracy
+from evaluation.Evaluation import precision_class
 
 pickle_file = './../resource/vec.pickle'
 with open(pickle_file, 'rb') as f:
@@ -32,10 +34,6 @@ print('Training set', train_dataset.shape, train_labels.shape)
 print('Validation set', valid_dataset.shape, valid_labels.shape)
 print('Test set', test_dataset.shape, test_labels.shape)
 
-
-def accuracy(predictions, labels):
-    return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))
-            / predictions.shape[0])
 
 graph = tf.Graph()
 with graph.as_default():
@@ -104,3 +102,5 @@ with tf.Session(graph=graph) as session:
             print('Training accuracy: %.1f%%' % accuracy(predictions, train_labels))
             print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
     print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
+    print('---------------------------------------------')
+    print(precision_class(test_prediction.eval(), test_labels))
