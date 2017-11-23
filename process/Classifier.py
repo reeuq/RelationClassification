@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from six.moves import cPickle as pickle
 from evaluation.Evaluation import accuracy
-from evaluation.Evaluation import precision_class
+from evaluation.Evaluation import precision_each_class
 
 pickle_file = './../resource/vec.pickle'
 with open(pickle_file, 'rb') as f:
@@ -103,4 +103,4 @@ with tf.Session(graph=graph) as session:
             print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
     print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
     print('---------------------------------------------')
-    print(precision_class(test_prediction.eval(), test_labels))
+    print(precision_each_class(test_prediction.eval(), test_labels))

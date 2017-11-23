@@ -8,7 +8,7 @@ def accuracy(predictions, labels):
             / predictions.shape[0])
 
 
-def precision_class(predictions, labels):
+def precision_each_class(predictions, labels):
     zeros = np.zeros_like(labels)
     zeros[:, 0] = 1
     usage_reverse = (100.0 * np.sum((np.argmax(predictions, 1) == np.argmax(labels, 1))
