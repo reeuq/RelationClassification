@@ -106,7 +106,7 @@ with open('./resource/1.1.relations.txt','r') as f:
                 wordVec = model.wv[word]
                 tab2_vec[num_vec2, :] = wordVec
             except Exception:
-                tab2_vec[num_vec2, :] = np.zeros(300)
+                tab2_vec[num_vec2, :] = -1 + 2 * np.random.random_sample(300)
             finally:
                 num_vec2 += 1
         tab2 = np.mean(tab2_vec, axis=0)
