@@ -17,17 +17,17 @@ def precision_each_class(predictions, labels):
                                         & (np.argmax(labels, 1) == np.argmax(zeros, 1)))
                          / np.sum(np.argmax(predictions, 1) == np.argmax(zeros, 1)))
     final_result = {
-        "usage_reverse": categories[0],
-        "usage": categories[1],
-        "result_reverse": categories[2],
-        "result": categories[3],
-        "model_feature_reverse": categories[4],
-        "model_feature": categories[5],
-        "part_whole_reverse": categories[6],
-        "part_whole": categories[7],
-        "topic_reverse": categories[8],
-        "topic": categories[9],
-        "compare": categories[10]
+        "usage_reverse": ("%.2f" % categories[0]),
+        "usage": ("%.2f" % categories[1]),
+        "result_reverse": ("%.2f" % categories[2]),
+        "result": ("%.2f" % categories[3]),
+        "model_feature_reverse": ("%.2f" % categories[4]),
+        "model_feature": ("%.2f" % categories[5]),
+        "part_whole_reverse": ("%.2f" % categories[6]),
+        "part_whole": ("%.2f" % categories[7]),
+        "topic_reverse": ("%.2f" % categories[8]),
+        "topic": ("%.2f" % categories[9]),
+        "compare": ("%.2f" % categories[10])
     }
     return final_result
 
@@ -41,17 +41,17 @@ def recall_each_class(predictions, labels):
                                         & (np.argmax(labels, 1) == np.argmax(zeros, 1)))
                          / np.sum(np.argmax(labels, 1) == np.argmax(zeros, 1)))
     final_result = {
-        "usage_reverse": categories[0],
-        "usage": categories[1],
-        "result_reverse": categories[2],
-        "result": categories[3],
-        "model_feature_reverse": categories[4],
-        "model_feature": categories[5],
-        "part_whole_reverse": categories[6],
-        "part_whole": categories[7],
-        "topic_reverse": categories[8],
-        "topic": categories[9],
-        "compare": categories[10]
+        "usage_reverse": ("%.2f" % categories[0]),
+        "usage": ("%.2f" % categories[1]),
+        "result_reverse": ("%.2f" % categories[2]),
+        "result": ("%.2f" % categories[3]),
+        "model_feature_reverse": ("%.2f" % categories[4]),
+        "model_feature": ("%.2f" % categories[5]),
+        "part_whole_reverse": ("%.2f" % categories[6]),
+        "part_whole": ("%.2f" % categories[7]),
+        "topic_reverse": ("%.2f" % categories[8]),
+        "topic": ("%.2f" % categories[9]),
+        "compare": ("%.2f" % categories[10])
     }
     return final_result
 
@@ -69,17 +69,17 @@ def f1_each_class(predictions, labels):
                   / np.sum(np.argmax(labels, 1) == np.argmax(zeros, 1)))
         categories[a] = (2 * precision * recall) / (precision + recall)
     final_result = {
-        "usage_reverse": categories[0],
-        "usage": categories[1],
-        "result_reverse": categories[2],
-        "result": categories[3],
-        "model_feature_reverse": categories[4],
-        "model_feature": categories[5],
-        "part_whole_reverse": categories[6],
-        "part_whole": categories[7],
-        "topic_reverse": categories[8],
-        "topic": categories[9],
-        "compare": categories[10]
+        "usage_reverse": ("%.2f" % categories[0]),
+        "usage": ("%.2f" % categories[1]),
+        "result_reverse": ("%.2f" % categories[2]),
+        "result": ("%.2f" % categories[3]),
+        "model_feature_reverse": ("%.2f" % categories[4]),
+        "model_feature": ("%.2f" % categories[5]),
+        "part_whole_reverse": ("%.2f" % categories[6]),
+        "part_whole": ("%.2f" % categories[7]),
+        "topic_reverse": ("%.2f" % categories[8]),
+        "topic": ("%.2f" % categories[9]),
+        "compare": ("%.2f" % categories[10])
     }
     return final_result
 
@@ -99,5 +99,6 @@ def f1_each_class_precision_recall(precision, recall):
         "compare": -1
     }
     for a in final_result.keys():
-        final_result[a] = (2 * precision[a] * recall[a]) / (precision[a] + recall[a])
+        temp = (2 * float(precision[a]) * float(recall[a])) / (float(precision[a]) + float(recall[a]))
+        final_result[a] = ("%.2f" % temp)
     return final_result

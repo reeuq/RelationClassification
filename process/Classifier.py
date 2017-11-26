@@ -26,14 +26,14 @@ def reformat(labels):
 label = reformat(label)
 print('label', label.shape)
 
-train_dataset = dataset[:700, :]
-train_labels = label[:700, :]
-valid_dataset = dataset[700:1000, :]
-valid_labels = label[700:1000, :]
+train_dataset = dataset[:1000, :]
+train_labels = label[:1000, :]
+# valid_dataset = dataset[700:1000, :]
+# valid_labels = label[700:1000, :]
 test_dataset = dataset[1000:, :]
 test_labels = label[1000:, :]
 print('Training set', train_dataset.shape, train_labels.shape)
-print('Validation set', valid_dataset.shape, valid_labels.shape)
+# print('Validation set', valid_dataset.shape, valid_labels.shape)
 print('Test set', test_dataset.shape, test_labels.shape)
 
 
@@ -41,7 +41,7 @@ graph = tf.Graph()
 with graph.as_default():
     tf_train_dataset = tf.constant(train_dataset)
     tf_train_labels = tf.constant(train_labels)
-    tf_valid_dataset = tf.constant(valid_dataset)
+    # tf_valid_dataset = tf.constant(valid_dataset)
     tf_test_dataset = tf.constant(test_dataset)
 
     hidden_node_count = 1024
@@ -57,8 +57,8 @@ with graph.as_default():
     hidden = tf.nn.relu(ys)
     h_fc = hidden
 
-    valid_y0 = tf.matmul(tf_valid_dataset, weights1) + biases1
-    valid_hidden1 = tf.nn.relu(valid_y0)
+    # valid_y0 = tf.matmul(tf_valid_dataset, weights1) + biases1
+    # valid_hidden1 = tf.nn.relu(valid_y0)
 
     test_y0 = tf.matmul(tf_test_dataset, weights1) + biases1
     test_hidden1 = tf.nn.relu(test_y0)
@@ -72,7 +72,7 @@ with graph.as_default():
     logits = tf.matmul(h_fc, weights2) + biases2
     # only drop out when train
     logits_predict = tf.matmul(hidden, weights2) + biases2
-    valid_predict = tf.matmul(valid_hidden1, weights2) + biases2
+    # valid_predict = tf.matmul(valid_hidden1, weights2) + biases2
     test_predict = tf.matmul(test_hidden1, weights2) + biases2
     # loss
     l2_loss = tf.nn.l2_loss(weights1) + tf.nn.l2_loss(biases1) + tf.nn.l2_loss(weights2) + tf.nn.l2_loss(biases2)
@@ -85,10 +85,10 @@ with graph.as_default():
 
     # Predictions for the training, validation, and test data.
     train_prediction = tf.nn.softmax(logits_predict)
-    valid_prediction = tf.nn.softmax(valid_predict)
+    # valid_prediction = tf.nn.softmax(valid_predict)
     test_prediction = tf.nn.softmax(test_predict)
 
-num_steps = 101
+num_steps = 2001
 
 with tf.Session(graph=graph) as session:
     tf.global_variables_initializer().run()
@@ -99,10 +99,10 @@ with tf.Session(graph=graph) as session:
         # arrays.
         feed_dict = {keep_prob: 0.5}
         _, l, predictions = session.run([optimizer, loss, train_prediction], feed_dict=feed_dict)
-        if (step % 10 == 0):
+        if (step % 200 == 0):
             print('Loss at step %d: %f' % (step, l))
             print('Training accuracy: %.1f%%' % accuracy(predictions, train_labels))
-            print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
+            # print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
     print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
 
     print('---------------------------------------------')
