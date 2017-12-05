@@ -71,7 +71,7 @@ if __name__ == '__main__':
                     wordVec = model.wv[word]
                     tab1_vec[num_vec1, :] = wordVec
                 except Exception:
-                    tab1_vec[num_vec1, :] = np.zeros(300)
+                    tab1_vec[num_vec1, :] = -1 + 2 * np.random.random_sample(300)
                 finally:
                     num_vec1 += 1
             tab1 = np.mean(tab1_vec, axis=0)
@@ -96,4 +96,4 @@ if __name__ == '__main__':
             'dataset': dataset,
             'label': label
         }
-        pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(save, f, protocol=2)
