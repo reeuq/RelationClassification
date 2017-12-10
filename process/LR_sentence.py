@@ -8,6 +8,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import classification_report
+import matplotlib.pyplot as plt
 
 
 def get_sentence(sentence, entity, tab2_string):
@@ -57,19 +59,17 @@ if __name__ == "__main__":
 
     print("X shape", X.shape)
 
-    # X_train = X[:1000, :]
-    # y_train = label[:1000]
-    #
-    # X_test = X[1000:, :]
-    # y_test = label[1000:]
-
+    X_train, X_test, y_train, y_test = train_test_split(X, label, test_size=228)
+    print("X_train shape", X_train.shape)
+    print("X_test shape", X_test.shape)
+    print("y_train shape", y_train.shape)
+    print("y_test shape", y_test.shape)
 
     # Instantiate（实例）
     lg = LogisticRegression(multi_class='multinomial', solver='lbfgs', random_state=42, verbose=1, max_iter=1000, n_jobs=-1)
 
     scores = cross_val_score(lg, X, label, cv=5, scoring='accuracy')
-    print(scores)
-    print(np.average(scores))
+    print("accuracy", scores, np.average(scores))
 
     # # Fit
     # lg.fit(X_train, y_train)
@@ -80,22 +80,8 @@ if __name__ == "__main__":
     # print(y_test)
     # print(y_pred)
     #
-    # from sklearn.metrics import confusion_matrix
-    # from sklearn.metrics import classification_report
-    # import matplotlib.pyplot as plt
-    #
     # classification_report = classification_report(y_test, y_pred)
     # print(classification_report)
     #
-    # confusion_matrix = confusion_matrix(y_test, y_pred)
-    # print(confusion_matrix)
-    #
-    # plt.matshow(confusion_matrix)
-    # plt.title('混淆矩阵')
-    # plt.colorbar()
-    # plt.ylabel('实际类型')
-    # plt.xlabel('预测类型')
-    # plt.show()
-    #
     # # Score
-    # print(metrics.accuracy_score(y_test, y_pred))
+    # print("accuracy", metrics.accuracy_score(y_test, y_pred))
