@@ -24,9 +24,9 @@ if __name__ == "__main__":
 
     #组成词典,并获取embedding层的W初始值
     dictionary = {}
-    W = []
+    W = [np.zeros(300)]
     for i, word in enumerate(words):
-        dictionary[word] = i
+        dictionary[word] = i + 1
         try:
             wordVec = model.wv[word]
             W.append(wordVec)

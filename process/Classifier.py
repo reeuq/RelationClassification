@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import numpy as np
 import tensorflow as tf
+from keras.preprocessing import sequence
 
 from six.moves import cPickle as pickle
 # from evaluation.Evaluation import accuracy
@@ -51,6 +52,8 @@ test_labels = label[1000:, :]
 print('Training set', train_dataset.shape, train_sentence_dataset.shape, train_labels.shape)
 print('Validation set', valid_dataset.shape, valid_sentence_dataset.shape, valid_labels.shape)
 print('Test set', test_dataset.shape, test_sentence_dataset.shape, test_labels.shape)
+
+sen1_train = sequence.pad_sequences(sen1_train,maxlen=max_len,truncating='post',padding='post')
 
 
 graph = tf.Graph()
