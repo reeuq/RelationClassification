@@ -1,260 +1,186 @@
+# -*- coding: utf-8 -*-
 from __future__ import print_function
-
 import numpy as np
 import tensorflow as tf
 from keras.preprocessing import sequence
-import sys,os
+import sys
+import os
 from six.moves import cPickle as pickle
 
-sys.path.append(os.path.join(os.path.dirname(__file__),'..'))
-
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from evaluation.Evaluation import accuracy
 from evaluation.Evaluation import precision_each_class
 from evaluation.Evaluation import recall_each_class
 from evaluation.Evaluation import f1_each_class_precision_recall
 from evaluation.Evaluation import class_label_count
-
-
-def print_out(precision, recall, f1, count):
-    print("%24s%10s%10s%10s%10s"%("","precision","recall","f1","count"))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("usage", precision[0], recall[0], f1[0], count[0]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("usage_reverse", precision[1], recall[1], f1[1], count[1]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("result", precision[2], recall[2], f1[2], count[2]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("result_reverse", precision[3], recall[3], f1[3], count[3]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("model_feature", precision[4], recall[4], f1[4], count[4]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("model_feature_reverse", precision[5], recall[5], f1[5], count[5]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("part_whole", precision[6], recall[6], f1[6], count[6]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("part_whole_reverse", precision[7], recall[7], f1[7], count[7]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("topic", precision[8], recall[8], f1[8], count[8]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("topic_reverse", precision[9], recall[9], f1[9], count[9]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("compare", precision[10], recall[10], f1[10], count[10]))
-    print("%24s%10.2f%10.2f%10.2f%10d" % ("average/sum", np.mean(precision), np.mean(recall), mean(f1), sum(count)))
-
-pickle_file = './../resource/vec.pickle'
-with open(pickle_file, 'rb') as f:
-    save = pickle.load(f)
-    dataset = save['dataset']
-    label = save['label']
-    del save
-    print('dataset', dataset.shape)
-    print('label', label.shape)
-
-# pickle_file = './../resource/sentenceVec.pickle'
-# with open(pickle_file, 'rb') as f:
-#     save = pickle.load(f)
-#     sentenceDataset = save['dataset']
-#     del save
-#     print('sentenceDataset', sentenceDataset.shape)
-
-
-pickle_file = './../resource/dictionary.pickle'
-with open(pickle_file, 'rb') as f:
-    save = pickle.load(f)
-    dictionary = save['dictionary']
-    W = save['W']
-    sentences_vec = save['sentences_vec']
-    del save
+from evaluation.Evaluation import print_out
 
 
 def reformat(labels):
     # Map 0 to [1.0, 0.0, 0.0 ...], 1 to [0.0, 1.0, 0.0 ...]
     labels = (np.arange(11) == labels[:, None]).astype(np.float32)
     return labels
-label = reformat(label)
-print('label', label.shape)
 
 
-def randomize(dataset, sentence_dataset, labels, sentence_dataset_len):
-    permutation = np.random.permutation(labels.shape[0])
-    shuffled_dataset = dataset[permutation, :]
-    shuffled_labels = labels[permutation, :]
-    shuffled_sentence_dataset = sentence_dataset[permutation, :]
-    shuffled_sentence_dataset_len = sentence_dataset_len[permutation]
-    return shuffled_dataset, shuffled_sentence_dataset, shuffled_labels, shuffled_sentence_dataset_len
+class Model(object):
+    def __init__(self, sen_max_len, words_vec, lstm_num_units, n_class, entity_vec_dim, hidden_dim):
+        # placeholder
+        self.entity_vec = tf.placeholder(tf.float32, [None, entity_vec_dim], name='entity_vec')
+        self.sen_ids = tf.placeholder(tf.int32, [None, sen_max_len], name='sen_ids')
+        self.sen_len = tf.placeholder(tf.int32, [None], name='sen_len')
 
-W = np.array(W)
-sen1_train = sequence.pad_sequences(sentences_vec, maxlen=29, truncating='post', padding='post')
-sen1_train_len = np.array([len(s) for s in sentences_vec])
+        self.labels = tf.placeholder(tf.float32, [None, n_class], name='labels')
+        self.lstm_input_keep_prob = tf.placeholder(tf.float32, name='lstm_input_keep_prob')
+        self.lstm_output_keep_prob = tf.placeholder(tf.float32, name='lstm_output_keep_prob')
+        self.hidden_keep_prob = tf.placeholder(tf.float32, name='hidden_keep_prob')
+        # Embedding Layer
+        # get embedding
+        # with tf.device('/cpu:0'), tf.name_scope('embedding'):
+        W_dic = tf.Variable(words_vec, dtype=tf.float32, trainable=True, name='W_dic')
+        self.sen_embedded = tf.nn.embedding_lookup(W_dic, self.sen_ids, name='sen_embedded')
 
-dataset, sen1_train, label, sen1_train_len = randomize(dataset, sen1_train, label, sen1_train_len)
+        def get_last(inputs, seq_len):
+            batch_size = tf.shape(inputs)[0]
+            max_seq_len = tf.shape(inputs)[1]
+            dim = inputs.get_shape().as_list()[2]
+            index_list = tf.range(batch_size) * max_seq_len + (seq_len - 1)
+            last_outputs = tf.gather(tf.reshape(inputs, (-1, dim)), index_list, name='last_outputs')
+            return last_outputs
 
-train_dataset = dataset[:900, :]
-train_sentence_dataset = sen1_train[:900, :]
-train_sentence_dataset_len = sen1_train_len[:900]
-train_labels = label[:900, :]
+        # LSTM layer
+        with tf.variable_scope('sen'):
+            sen_cell = tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.BasicLSTMCell(lstm_num_units, state_is_tuple=True),
+                                                     input_keep_prob=self.lstm_input_keep_prob,
+                                                     output_keep_prob=self.lstm_output_keep_prob)
+            sen_outputs, sen_states = tf.nn.dynamic_rnn(sen_cell, self.sen_embedded,
+                                                        sequence_length=self.sen_len, dtype=tf.float32)
+            sen_last_output = sen_states.h
 
-valid_dataset = dataset[900:1100, :]
-valid_sentence_dataset = sen1_train[900:1100, :]
-valid_sentence_dataset_len = sen1_train_len[900:1100]
-valid_labels = label[900:1100, :]
+        self.merge = tf.concat([sen_last_output, self.entity_vec], 1)
 
-test_dataset = dataset[1100:, :]
-test_sentence_dataset = sen1_train[1100:, :]
-test_sentence_dataset_len = sen1_train_len[1100:]
-test_labels = label[1100:, :]
+        W1 = tf.Variable(tf.truncated_normal([lstm_num_units + entity_vec_dim, hidden_dim]))
+        b1 = tf.Variable(tf.zeros([hidden_dim]))
+        output = tf.nn.relu(tf.nn.xw_plus_b(self.merge, W1, b1))
 
-print('Training set', train_dataset.shape, train_sentence_dataset.shape, train_labels.shape)
-print('Validation set', valid_dataset.shape, valid_sentence_dataset.shape, valid_labels.shape)
-print('Test set', test_dataset.shape, test_sentence_dataset.shape, test_labels.shape)
+        W2 = tf.Variable(tf.truncated_normal([hidden_dim, n_class]))
+        b2 = tf.Variable(tf.zeros([n_class]))
+        logits = tf.nn.xw_plus_b(tf.nn.dropout(output, self.hidden_keep_prob), W2, b2)
+        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=self.labels))
+        self.prob = tf.nn.softmax(tf.nn.xw_plus_b(output, W2, b2))
 
 
-batch_size = 96
+if __name__ == '__main__':
+    # --------------------model-------------------------
+    # lstm 长度
+    sen_max_len = 29
+    # lstm 单元维度（细胞输出维度）
+    lstm_num_units = 300
+    # 实体字典的维度
+    entity_vec_dim = 300
+    # 隐藏层节点数
+    hidden_dim = 300
+    # 类别个数
+    n_class = 11
+    # dropout 概率
+    lstm_input_keep_prob = 0.5
+    lstm_output_keep_prob = 0.5
+    hidden_keep_prob = 0.5
+    # train
+    # 一批传入多少数据
+    batch_size = 96
+    # 训练轮数
+    # num_epochs = 200
+    # 训练总步数
+    num_steps = 5001
+    # 每训练多少批次，使用develop数据集验证
+    evaluate_every = 100
+    # 存储模型个数
+    # num_checkpoints = 5
+    # 损失函数最多不降低的次数（使用early stopping结束训练，当develop数据集连续N轮不降低时，结束训练）
+    # max_num_undesc = 20
+    # 初始学习率
+    # starter_learning_rate = 0.1
 
-graph = tf.Graph()
-with graph.as_default():
-    # tf_train = tf.constant(train_dataset)
-    # tf_train_sentence_dataset = tf.constant(train_sentence_dataset, dtype=tf.int32)
-    # tf_train_sentence_dataset_len = tf.constant(train_sentence_dataset_len, dtype=tf.int32)
-    tf_train = tf.placeholder(tf.float32, shape=(batch_size, 300))
-    tf_train_sentence_dataset = tf.placeholder(tf.int32, shape=(batch_size, 29))
-    tf_train_sentence_dataset_len = tf.placeholder(tf.int32, shape=(batch_size))
+    print('load data........')
+    with open('./../resource/vec.pickle', 'rb') as f:
+        save = pickle.load(f)
+        dataset = save['dataset']
+        label = save['label']
+        del save
+    with open('./../resource/dictionary.pickle', 'rb') as f:
+        save = pickle.load(f)
+        W = save['W']
+        sentences_vec = save['sentences_vec']
+        del save
+    # 将label转为one-hot编码形式
+    label = reformat(label)
+    # 将vector由list形式转换为ndarray形式
+    vector = np.array(W)
+    sentences_ids = sequence.pad_sequences(sentences_vec, maxlen=sen_max_len, truncating='post', padding='post')
+    sentences_ids_len = np.array([len(s) for s in sentences_vec])
+    # 分割训练集和验证集
+    train_word_vec = dataset[:1000, :]
+    train_sentences_ids = sentences_ids[:1000, :]
+    train_sentences_ids_len = sentences_ids_len[:1000]
+    train_labels = label[:1000, :]
 
-    tf_valid = tf.constant(valid_dataset)
-    tf_valid_sentence_dataset = tf.constant(valid_sentence_dataset, dtype=tf.int32)
-    tf_valid_sentence_dataset_len = tf.constant(valid_sentence_dataset_len, dtype=tf.int32)
+    valid_word_vec = dataset[1000:, :]
+    valid_sentences_ids = sentences_ids[1000:, :]
+    valid_sentences_ids_len = sentences_ids_len[1000:]
+    valid_labels = label[1000:, :]
 
-    tf_test = tf.constant(test_dataset)
-    tf_test_sentence_dataset = tf.constant(test_sentence_dataset, dtype=tf.int32)
-    tf_test_sentence_dataset_len = tf.constant(test_sentence_dataset_len, dtype=tf.int32)
+    print('Training set', train_word_vec.shape, train_sentences_ids.shape, train_sentences_ids_len.shape,
+          train_labels.shape)
+    print('Validation set', valid_word_vec.shape, valid_sentences_ids.shape, valid_sentences_ids_len.shape,
+          valid_labels.shape)
 
-    # tf_train_labels = tf.constant(train_labels)
-    tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, 11))
+    with tf.Session() as sess:
+        model = Model(sen_max_len=sen_max_len, words_vec=vector, lstm_num_units=lstm_num_units,
+                      n_class=n_class, entity_vec_dim=entity_vec_dim, hidden_dim=hidden_dim)
+        # 记录全局步数
+        # global_step = tf.Variable(0, trainable=False, name='global_step')
+        # 选择使用的优化器
+        # learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 100000, 0.96, staircase=True)
+        train_op = tf.train.GradientDescentOptimizer(0.1).minimize(model.loss)
+        # saver = tf.train.Saver(tf.global_variables(), max_to_keep=num_checkpoints)
+        sess.run(tf.global_variables_initializer())
+        print('Start training.....')
 
-    W_vec = tf.Variable(W, dtype=tf.float32, trainable=True)
-    train_embedded = tf.nn.embedding_lookup(W_vec, tf_train_sentence_dataset)
-    valid_embedded = tf.nn.embedding_lookup(W_vec, tf_valid_sentence_dataset)
-    test_embedded = tf.nn.embedding_lookup(W_vec, tf_test_sentence_dataset)
+        for step in range(num_steps):
+            offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
+            batch_word_vec = train_word_vec[offset:(offset + batch_size), :]
+            batch_sentence_ids = train_sentences_ids[offset:(offset + batch_size), :]
+            batch_sentence_ids_len = train_sentences_ids_len[offset:(offset + batch_size)]
 
-    # sentence_node = 300
-    # W1 = tf.Variable(tf.truncated_normal([300, sentence_node]))
-    #
-    # X1_train_dataset = tf.reshape(train_embedded, [-1, 300])
-    # X1_valid_dataset = tf.reshape(valid_embedded, [-1, 300])
-    # X1_test_dataset = tf.reshape(test_embedded, [-1, 300])
-    #
-    # train_Z_dataset = tf.matmul(X1_train_dataset, W1)
-    # train_Z_dataset_reshape = tf.reshape(train_Z_dataset, [-1, 35, sentence_node])
-    # train_Z_dataset_transpose = tf.transpose(train_embedded, perm=[0, 2, 1])
-    # train_m_dataset = tf.reduce_max(train_Z_dataset_transpose, 2)
+            batch_labels = train_labels[offset:(offset + batch_size), :]
 
-    # valid_Z_dataset = tf.matmul(X1_valid_dataset, W1)
-    # valid_Z_dataset_reshape = tf.reshape(valid_Z_dataset, [-1, 35, sentence_node])
-    # valid_Z_dataset_transpose = tf.transpose(valid_embedded, perm=[0, 2, 1])
-    # valid_m_dataset = tf.reduce_max(valid_Z_dataset_transpose, 2)
+            feed_dict = {model.entity_vec: batch_word_vec,
+                         model.sen_ids: batch_sentence_ids,
+                         model.sen_len: batch_sentence_ids_len,
+                         model.labels: batch_labels,
+                         model.lstm_input_keep_prob: lstm_input_keep_prob,
+                         model.lstm_output_keep_prob: lstm_output_keep_prob,
+                         model.hidden_keep_prob: hidden_keep_prob}
+            _, loss, predictions = sess.run([train_op, model.loss, model.prob], feed_dict=feed_dict)
+            if step % evaluate_every == 0:
+                print("Minibatch loss at step %d: %f" % (step, loss))
+                print("Minibatch accuracy: %.1f%%" % accuracy(predictions, batch_labels))
+                feed_dic = {model.entity_vec: valid_word_vec,
+                            model.sen_ids: valid_sentences_ids,
+                            model.sen_len: valid_sentences_ids_len,
+                            model.labels: valid_labels,
+                            model.lstm_input_keep_prob: 1,
+                            model.lstm_output_keep_prob: 1,
+                            model.hidden_keep_prob: 1}
+                valid_predictions = sess.run(model.prob, feed_dict=feed_dic)
+                print("Validation accuracy: %.1f%%" % accuracy(valid_predictions, valid_labels))
 
-    # test_Z_dataset = tf.matmul(X1_test_dataset, W1)
-    # test_Z_dataset_reshape = tf.reshape(test_Z_dataset, [-1, 35, sentence_node])
-    # test_Z_dataset_transpose = tf.transpose(test_embedded, perm=[0, 2, 1])
-    # test_m_dataset = tf.reduce_max(test_Z_dataset_transpose, 2)
 
-    def get_last(inputs, seq_len):
-        batch_size = tf.shape(inputs)[0]
-        max_seq_len = tf.shape(inputs)[1]
-        dim = inputs.get_shape().as_list()[2]
-        index_list = tf.range(batch_size) * max_seq_len + (seq_len - 1)
-        last_outputs = tf.gather(tf.reshape(inputs, (-1, dim)), index_list, name='last_outputs')
-        return last_outputs
-
-    sen1_cell_train = tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.BasicLSTMCell(300, state_is_tuple=True),
-                                              input_keep_prob=0.5, output_keep_prob=0.5)
-    sen1_outputs_train, sen1_states_train = tf.nn.dynamic_rnn(sen1_cell_train, train_embedded, sequence_length=tf_train_sentence_dataset_len, dtype=tf.float32)
-    # sen1_last_output_train = get_last(sen1_outputs_train, tf_train_sentence_dataset_len)
-    sen1_last_output_train = sen1_states_train.h
-
-    sen1_cell_valid = tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.BasicLSTMCell(300, state_is_tuple=True, reuse=True),
-                                              input_keep_prob=1, output_keep_prob=1)
-    sen1_outputs_valid, sen1_states_valid = tf.nn.dynamic_rnn(sen1_cell_valid, valid_embedded, sequence_length=tf_valid_sentence_dataset_len, dtype=tf.float32)
-    # sen1_last_output_valid = get_last(sen1_outputs_valid,tf_valid_sentence_dataset_len)
-    sen1_last_output_valid = sen1_states_valid.h
-
-    sen1_cell_test = tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.BasicLSTMCell(300, state_is_tuple=True, reuse=True),
-                                              input_keep_prob=1, output_keep_prob=1)
-    sen1_outputs_test, sen1_states_test = tf.nn.dynamic_rnn(sen1_cell_test, test_embedded, sequence_length=tf_test_sentence_dataset_len, dtype=tf.float32)
-    # sen1_last_output_test = get_last(sen1_outputs_test, tf_test_sentence_dataset_len)
-    sen1_last_output_test = sen1_states_test.h
-
-    tf_train_dataset = tf.concat([sen1_last_output_train, tf_train], 1)
-    tf_valid_dataset = tf.concat([sen1_last_output_valid, tf_valid], 1)
-    tf_test_dataset = tf.concat([sen1_last_output_test, tf_test], 1)
-
-    # tf_train_dataset = sen1_last_output_train
-    # tf_valid_dataset = sen1_last_output_valid
-    # tf_test_dataset = sen1_last_output_test
-    #
-    # tf_train_dataset = tf_train
-    # tf_valid_dataset = tf_valid
-    # tf_test_dataset = tf_test
-
-    hidden_node_count = 300
-    # Variables.
-    weights1 = tf.Variable(tf.truncated_normal([600, hidden_node_count]))
-    biases1 = tf.Variable(tf.zeros([hidden_node_count]))
-
-    weights2 = tf.Variable(tf.truncated_normal([hidden_node_count, 11]))
-    biases2 = tf.Variable(tf.zeros([11]))
-
-    # Training computation. right most
-    ys = tf.matmul(tf_train_dataset, weights1) + biases1
-    hidden = tf.nn.relu(ys)
-    h_fc = hidden
-
-    valid_y0 = tf.matmul(tf_valid_dataset, weights1) + biases1
-    valid_hidden1 = tf.nn.relu(valid_y0)
-
-    test_y0 = tf.matmul(tf_test_dataset, weights1) + biases1
-    test_hidden1 = tf.nn.relu(test_y0)
-
-    # enable DropOut
-    keep_prob = tf.placeholder(tf.float32)
-    hidden_drop = tf.nn.dropout(hidden, keep_prob)
-    h_fc = hidden_drop
-
-    # left most
-    logits = tf.matmul(h_fc, weights2) + biases2
-    # only drop out when train
-    logits_predict = tf.matmul(hidden, weights2) + biases2
-    valid_predict = tf.matmul(valid_hidden1, weights2) + biases2
-    test_predict = tf.matmul(test_hidden1, weights2) + biases2
-    # loss
-    l2_loss = tf.nn.l2_loss(weights1) + tf.nn.l2_loss(biases1) + tf.nn.l2_loss(weights2) + tf.nn.l2_loss(biases2)
-    # enable regularization
-    beta = 0.002
-    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf_train_labels)) + beta * l2_loss
-
-    # Optimizer.
-    optimizer = tf.train.GradientDescentOptimizer(0.1).minimize(loss)
-
-    # Predictions for the training, validation, and test data.
-    train_prediction = tf.nn.softmax(logits_predict)
-    valid_prediction = tf.nn.softmax(valid_predict)
-    test_prediction = tf.nn.softmax(test_predict)
-
-num_steps = 3001
-
-with tf.Session(graph=graph) as session:
-    tf.global_variables_initializer().run()
-    print("Initialized")
-    for step in range(num_steps):
-        offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
-        batch_data = train_dataset[offset:(offset + batch_size), :]
-        batch_sentence_data = train_sentence_dataset[offset:(offset + batch_size), :]
-        batch_sentence_data_len = train_sentence_dataset_len[offset:(offset + batch_size)]
-
-        batch_labels = train_labels[offset:(offset + batch_size), :]
-
-        feed_dict = {tf_train: batch_data, tf_train_sentence_dataset: batch_sentence_data,
-                     tf_train_sentence_dataset_len: batch_sentence_data_len,
-                     tf_train_labels: batch_labels, keep_prob: 0.5}
-        _, l, predictions = session.run([optimizer, loss, train_prediction], feed_dict=feed_dict)
-        if (step % 100 == 0):
-            print("Minibatch loss at step %d: %f" % (step, l))
-            print("Minibatch accuracy: %.1f%%" % accuracy(predictions, batch_labels))
-            print("Validation accuracy: %.1f%%" % accuracy(valid_prediction.eval(), valid_labels))
-    print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
-
-    print('---------------------------------------------')
-    precision = precision_each_class(test_prediction.eval(), test_labels)
-    recall = recall_each_class(test_prediction.eval(), test_labels)
-    f1 = f1_each_class_precision_recall(precision, recall)
-    count = class_label_count(test_labels)
-    print_out(precision, recall, f1, count)
+                # print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
+                #
+                # print('---------------------------------------------')
+                # precision = precision_each_class(test_prediction.eval(), test_labels)
+                # recall = recall_each_class(test_prediction.eval(), test_labels)
+                # f1 = f1_each_class_precision_recall(precision, recall)
+                # count = class_label_count(test_labels)
+                # print_out(precision, recall, f1, count)
