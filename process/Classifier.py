@@ -33,6 +33,7 @@ class Model(object):
         self.lstm_input_keep_prob = tf.placeholder(tf.float32, name='lstm_input_keep_prob')
         self.lstm_output_keep_prob = tf.placeholder(tf.float32, name='lstm_output_keep_prob')
         self.hidden_keep_prob = tf.placeholder(tf.float32, name='hidden_keep_prob')
+        self.l2_loss_beta = tf.placeholder(tf.float32, name='l2_loss_beta')
         # Embedding Layer
         # get embedding
         # with tf.device('/cpu:0'), tf.name_scope('embedding'):
@@ -65,7 +66,9 @@ class Model(object):
         W2 = tf.Variable(tf.truncated_normal([hidden_dim, n_class]))
         b2 = tf.Variable(tf.zeros([n_class]))
         logits = tf.nn.xw_plus_b(tf.nn.dropout(output, self.hidden_keep_prob), W2, b2)
-        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=self.labels))
+        l2_loss = tf.nn.l2_loss(W1) + tf.nn.l2_loss(b1) + tf.nn.l2_loss(W2) + tf.nn.l2_loss(b2)
+        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=self.labels)) \
+                    + self.l2_loss_beta * l2_loss
         self.prob = tf.nn.softmax(tf.nn.xw_plus_b(output, W2, b2))
 
 
@@ -88,18 +91,16 @@ if __name__ == '__main__':
     # train
     # 一批传入多少数据
     batch_size = 96
-    # 训练轮数
-    # num_epochs = 200
     # 训练总步数
     num_steps = 5001
     # 每训练多少批次，使用develop数据集验证
     evaluate_every = 100
     # 存储模型个数
     # num_checkpoints = 5
-    # 损失函数最多不降低的次数（使用early stopping结束训练，当develop数据集连续N轮不降低时，结束训练）
-    # max_num_undesc = 20
     # 初始学习率
-    # starter_learning_rate = 0.1
+    starter_learning_rate = 0.2
+    # l2正则项系数
+    l2_loss_beta = 0.002
 
     print('load data........')
     with open('./../resource/vec.pickle', 'rb') as f:
@@ -119,15 +120,15 @@ if __name__ == '__main__':
     sentences_ids = sequence.pad_sequences(sentences_vec, maxlen=sen_max_len, truncating='post', padding='post')
     sentences_ids_len = np.array([len(s) for s in sentences_vec])
     # 分割训练集和验证集
-    train_word_vec = dataset[:1000, :]
-    train_sentences_ids = sentences_ids[:1000, :]
-    train_sentences_ids_len = sentences_ids_len[:1000]
-    train_labels = label[:1000, :]
+    train_word_vec = dataset[157:, :]
+    train_sentences_ids = sentences_ids[157:, :]
+    train_sentences_ids_len = sentences_ids_len[157:]
+    train_labels = label[157:, :]
 
-    valid_word_vec = dataset[1000:, :]
-    valid_sentences_ids = sentences_ids[1000:, :]
-    valid_sentences_ids_len = sentences_ids_len[1000:]
-    valid_labels = label[1000:, :]
+    valid_word_vec = dataset[:157, :]
+    valid_sentences_ids = sentences_ids[:157, :]
+    valid_sentences_ids_len = sentences_ids_len[:157]
+    valid_labels = label[:157, :]
 
     print('Training set', train_word_vec.shape, train_sentences_ids.shape, train_sentences_ids_len.shape,
           train_labels.shape)
@@ -138,11 +139,10 @@ if __name__ == '__main__':
         model = Model(sen_max_len=sen_max_len, words_vec=vector, lstm_num_units=lstm_num_units,
                       n_class=n_class, entity_vec_dim=entity_vec_dim, hidden_dim=hidden_dim)
         # 记录全局步数
-        # global_step = tf.Variable(0, trainable=False, name='global_step')
+        global_step = tf.Variable(0, trainable=False, name='global_step')
         # 选择使用的优化器
-        # learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 100000, 0.96, staircase=True)
-        train_op = tf.train.GradientDescentOptimizer(0.1).minimize(model.loss)
-        # saver = tf.train.Saver(tf.global_variables(), max_to_keep=num_checkpoints)
+        # learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 500, 1, staircase=True)
+        train_op = tf.train.GradientDescentOptimizer(starter_learning_rate).minimize(model.loss, global_step=global_step)
         sess.run(tf.global_variables_initializer())
         print('Start training.....')
 
@@ -160,7 +160,8 @@ if __name__ == '__main__':
                          model.labels: batch_labels,
                          model.lstm_input_keep_prob: lstm_input_keep_prob,
                          model.lstm_output_keep_prob: lstm_output_keep_prob,
-                         model.hidden_keep_prob: hidden_keep_prob}
+                         model.hidden_keep_prob: hidden_keep_prob,
+                         model.l2_loss_beta: l2_loss_beta}
             _, loss, predictions = sess.run([train_op, model.loss, model.prob], feed_dict=feed_dict)
             if step % evaluate_every == 0:
                 print("Minibatch loss at step %d: %f" % (step, loss))
@@ -171,16 +172,14 @@ if __name__ == '__main__':
                             model.labels: valid_labels,
                             model.lstm_input_keep_prob: 1,
                             model.lstm_output_keep_prob: 1,
-                            model.hidden_keep_prob: 1}
+                            model.hidden_keep_prob: 1,
+                            model.l2_loss_beta: l2_loss_beta}
                 valid_predictions = sess.run(model.prob, feed_dict=feed_dic)
                 print("Validation accuracy: %.1f%%" % accuracy(valid_predictions, valid_labels))
 
-
-                # print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
-                #
-                # print('---------------------------------------------')
-                # precision = precision_each_class(test_prediction.eval(), test_labels)
-                # recall = recall_each_class(test_prediction.eval(), test_labels)
-                # f1 = f1_each_class_precision_recall(precision, recall)
-                # count = class_label_count(test_labels)
-                # print_out(precision, recall, f1, count)
+        print('---------------------------------------------')
+        precision = precision_each_class(valid_predictions, valid_labels)
+        recall = recall_each_class(valid_predictions, valid_labels)
+        f1 = f1_each_class_precision_recall(precision, recall)
+        count = class_label_count(valid_labels)
+        print_out(precision, recall, f1, count)
