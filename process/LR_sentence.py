@@ -3,8 +3,6 @@ import string
 import numpy as np
 from six.moves import cPickle as pickle
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import HashingVectorizer
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from sklearn.model_selection import train_test_split, cross_val_score

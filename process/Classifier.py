@@ -96,7 +96,7 @@ if __name__ == '__main__':
     # 每训练多少批次，使用develop数据集验证
     evaluate_every = 100
     # 存储模型个数
-    # num_checkpoints = 5
+    num_checkpoints = 5
     # 初始学习率
     starter_learning_rate = 0.2
     # l2正则项系数
@@ -143,6 +143,7 @@ if __name__ == '__main__':
         # 选择使用的优化器
         # learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 500, 1, staircase=True)
         train_op = tf.train.GradientDescentOptimizer(starter_learning_rate).minimize(model.loss, global_step=global_step)
+        saver = tf.train.Saver(tf.global_variables(), max_to_keep=num_checkpoints)
         sess.run(tf.global_variables_initializer())
         print('Start training.....')
 

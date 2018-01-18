@@ -1,8 +1,5 @@
 import string
 import xml.dom.minidom
-
-import numpy as np
-from gensim.models import word2vec
 from six.moves import cPickle as pickle
 
 
@@ -12,16 +9,14 @@ def get_sentence(sentence, entity, tab2_string):
         return get_sentence(sentence_demo, entity.nextSibling, tab2_string)
     elif entity.nodeType == 1:
         if entity.getAttribute("id") == tab2_string:
-            # sentence_demo = sentence + entity.firstChild.data
-            return sentence
+            sentence_demo = sentence + entity.firstChild.data
+            return sentence_demo
         else:
             sentence_demo = sentence + entity.firstChild.data
             return get_sentence(sentence_demo, entity.nextSibling, tab2_string)
 
 
 if __name__ == "__main__":
-    # model = word2vec.KeyedVectors.load_word2vec_format('./../resource/GoogleNews-vectors-negative300.bin', binary=True)
-
     dom = xml.dom.minidom.parse('./../resource/original/1.1.text.xml')
     root = dom.documentElement
 
@@ -39,7 +34,7 @@ if __name__ == "__main__":
                 tab2_string = string_wyd[string_wyd.find(',') + 1:string_wyd.find(',', string_wyd.find(',') + 1)]
             for entity in entities:
                 if entity.getAttribute("id") == tab1_string:
-                    sentences.append(get_sentence("", entity.nextSibling, tab2_string))
+                    sentences.append(get_sentence("", entity, tab2_string))
                     break
     with open('./../resource/sentence.pickle', 'wb') as f:
         save = {

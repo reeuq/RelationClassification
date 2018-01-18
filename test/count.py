@@ -2,33 +2,37 @@ from six.moves import cPickle as pickle
 
 with open('./../resource/vec.pickle', 'rb') as f:
     save = pickle.load(f)
-    dataset = save['dataset']
     label = save['label']
     del save
-    count = [0]*11
-    for a in label:
-        if a == 0:
-            count[0] += 1
-        elif a == 1:
-            count[1] += 1
-        elif a == 2:
-            count[2] += 1
-        elif a == 3:
-            count[3] += 1
-        elif a == 4:
-            count[4] += 1
-        elif a == 5:
-            count[5] += 1
-        elif a == 6:
-            count[6] += 1
-        elif a == 7:
-            count[7] += 1
-        elif a == 8:
-            count[8] += 1
-        elif a == 9:
-            count[9] += 1
-        elif a == 10:
-            count[10] += 1
-    print(count)
-    print('dataset', dataset.shape)
-    print('label', label.shape)
+    with open('./../resource/sentence.pickle', 'rb') as file:
+        save = pickle.load(file)
+        sentences = save['sentences']
+        del save
+        sentenceFile = ['']*11
+        for i in range(sentences.__len__()):
+            if label[i] == 0:
+                sentenceFile[0] += (sentences[i] + '\n')
+            elif label[i] == 1:
+                sentenceFile[1] += (sentences[i] + '\n')
+            elif label[i] == 2:
+                sentenceFile[2] += (sentences[i] + '\n')
+            elif label[i] == 3:
+                sentenceFile[3] += (sentences[i] + '\n')
+            elif label[i] == 4:
+                sentenceFile[4] += (sentences[i] + '\n')
+            elif label[i] == 5:
+                sentenceFile[5] += (sentences[i] + '\n')
+            elif label[i] == 6:
+                sentenceFile[6] += (sentences[i] + '\n')
+            elif label[i] == 7:
+                sentenceFile[7] += (sentences[i] + '\n')
+            elif label[i] == 8:
+                sentenceFile[8] += (sentences[i] + '\n')
+            elif label[i] == 9:
+                sentenceFile[9] += (sentences[i] + '\n')
+            elif label[i] == 10:
+                sentenceFile[10] += (sentences[i] + '\n')
+
+        with open('./../resource/sentence.txt', 'w') as f:
+            for i in range(sentenceFile.__len__()):
+                f.write(str(sentenceFile[i]) + '\n')
