@@ -9,8 +9,8 @@ def get_sentence(sentence, entity, tab2_string):
         return get_sentence(sentence_demo, entity.nextSibling, tab2_string)
     elif entity.nodeType == 1:
         if entity.getAttribute("id") == tab2_string:
-            sentence_demo = sentence + entity.firstChild.data
-            return sentence_demo
+            # sentence_demo = sentence + entity.firstChild.data
+            return sentence
         else:
             sentence_demo = sentence + entity.firstChild.data
             return get_sentence(sentence_demo, entity.nextSibling, tab2_string)
@@ -34,7 +34,7 @@ if __name__ == "__main__":
                 tab2_string = string_wyd[string_wyd.find(',') + 1:string_wyd.find(',', string_wyd.find(',') + 1)]
             for entity in entities:
                 if entity.getAttribute("id") == tab1_string:
-                    sentences.append(get_sentence("", entity, tab2_string))
+                    sentences.append(get_sentence("", entity.nextSibling, tab2_string))
                     break
     with open('./../resource/sentence.pickle', 'wb') as f:
         save = {

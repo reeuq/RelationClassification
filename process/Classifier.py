@@ -101,6 +101,8 @@ if __name__ == '__main__':
     starter_learning_rate = 0.2
     # l2正则项系数
     l2_loss_beta = 0.002
+    # 是否为训练阶段
+    is_train = True
 
     print('load data........')
     with open('./../resource/vec.pickle', 'rb') as f:
@@ -145,42 +147,66 @@ if __name__ == '__main__':
         train_op = tf.train.GradientDescentOptimizer(starter_learning_rate).minimize(model.loss, global_step=global_step)
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=num_checkpoints)
         sess.run(tf.global_variables_initializer())
-        print('Start training.....')
 
-        for step in range(num_steps):
-            offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
-            batch_word_vec = train_word_vec[offset:(offset + batch_size), :]
-            batch_sentence_ids = train_sentences_ids[offset:(offset + batch_size), :]
-            batch_sentence_ids_len = train_sentences_ids_len[offset:(offset + batch_size)]
+        if is_train:
+            max_acc = 0
+            print('Start training.....')
+            for step in range(num_steps):
+                offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
+                batch_word_vec = train_word_vec[offset:(offset + batch_size), :]
+                batch_sentence_ids = train_sentences_ids[offset:(offset + batch_size), :]
+                batch_sentence_ids_len = train_sentences_ids_len[offset:(offset + batch_size)]
 
-            batch_labels = train_labels[offset:(offset + batch_size), :]
+                batch_labels = train_labels[offset:(offset + batch_size), :]
 
-            feed_dict = {model.entity_vec: batch_word_vec,
-                         model.sen_ids: batch_sentence_ids,
-                         model.sen_len: batch_sentence_ids_len,
-                         model.labels: batch_labels,
-                         model.lstm_input_keep_prob: lstm_input_keep_prob,
-                         model.lstm_output_keep_prob: lstm_output_keep_prob,
-                         model.hidden_keep_prob: hidden_keep_prob,
-                         model.l2_loss_beta: l2_loss_beta}
-            _, loss, predictions = sess.run([train_op, model.loss, model.prob], feed_dict=feed_dict)
-            if step % evaluate_every == 0:
-                print("Minibatch loss at step %d: %f" % (step, loss))
-                print("Minibatch accuracy: %.1f%%" % accuracy(predictions, batch_labels))
-                feed_dic = {model.entity_vec: valid_word_vec,
-                            model.sen_ids: valid_sentences_ids,
-                            model.sen_len: valid_sentences_ids_len,
-                            model.labels: valid_labels,
-                            model.lstm_input_keep_prob: 1,
-                            model.lstm_output_keep_prob: 1,
-                            model.hidden_keep_prob: 1,
-                            model.l2_loss_beta: l2_loss_beta}
-                valid_predictions = sess.run(model.prob, feed_dict=feed_dic)
-                print("Validation accuracy: %.1f%%" % accuracy(valid_predictions, valid_labels))
-
-        print('---------------------------------------------')
-        precision = precision_each_class(valid_predictions, valid_labels)
-        recall = recall_each_class(valid_predictions, valid_labels)
-        f1 = f1_each_class_precision_recall(precision, recall)
-        count = class_label_count(valid_labels)
-        print_out(precision, recall, f1, count)
+                feed_dict = {model.entity_vec: batch_word_vec,
+                             model.sen_ids: batch_sentence_ids,
+                             model.sen_len: batch_sentence_ids_len,
+                             model.labels: batch_labels,
+                             model.lstm_input_keep_prob: lstm_input_keep_prob,
+                             model.lstm_output_keep_prob: lstm_output_keep_prob,
+                             model.hidden_keep_prob: hidden_keep_prob,
+                             model.l2_loss_beta: l2_loss_beta}
+                _, loss, predictions = sess.run([train_op, model.loss, model.prob], feed_dict=feed_dict)
+                if step % evaluate_every == 0:
+                    print("Minibatch loss at step %d: %f" % (step, loss))
+                    print("Minibatch accuracy: %.1f%%" % accuracy(predictions, batch_labels))
+                    feed_dic = {model.entity_vec: valid_word_vec,
+                                model.sen_ids: valid_sentences_ids,
+                                model.sen_len: valid_sentences_ids_len,
+                                model.labels: valid_labels,
+                                model.lstm_input_keep_prob: 1,
+                                model.lstm_output_keep_prob: 1,
+                                model.hidden_keep_prob: 1,
+                                model.l2_loss_beta: l2_loss_beta}
+                    valid_predictions = sess.run(model.prob, feed_dict=feed_dic)
+                    predict_accuracy = accuracy(valid_predictions, valid_labels)
+                    if predict_accuracy > max_acc:
+                        max_acc = predict_accuracy
+                        saver.save(sess, './../resource/model/classifier.ckpt')
+                    print("Validation accuracy: %.1f%%" % predict_accuracy)
+            print('---------------------------------------------')
+            precision = precision_each_class(valid_predictions, valid_labels)
+            recall = recall_each_class(valid_predictions, valid_labels)
+            f1 = f1_each_class_precision_recall(precision, recall)
+            count = class_label_count(valid_labels)
+            print_out(precision, recall, f1, count)
+        else:
+            model_file = tf.train.latest_checkpoint('./../resource/model/')
+            saver.restore(sess, model_file)
+            feed_dic = {model.entity_vec: valid_word_vec,
+                        model.sen_ids: valid_sentences_ids,
+                        model.sen_len: valid_sentences_ids_len,
+                        model.labels: valid_labels,
+                        model.lstm_input_keep_prob: 1,
+                        model.lstm_output_keep_prob: 1,
+                        model.hidden_keep_prob: 1,
+                        model.l2_loss_beta: l2_loss_beta}
+            valid_predictions = sess.run(model.prob, feed_dict=feed_dic)
+            print("Validation accuracy: %.1f%%" % accuracy(valid_predictions, valid_labels))
+            print('---------------------------------------------')
+            precision = precision_each_class(valid_predictions, valid_labels)
+            recall = recall_each_class(valid_predictions, valid_labels)
+            f1 = f1_each_class_precision_recall(precision, recall)
+            count = class_label_count(valid_labels)
+            print_out(precision, recall, f1, count)
