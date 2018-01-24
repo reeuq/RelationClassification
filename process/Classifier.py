@@ -102,7 +102,7 @@ if __name__ == '__main__':
     # l2正则项系数
     l2_loss_beta = 0.002
     # 是否为训练阶段
-    is_train = True
+    is_train = False
 
     print('load data........')
     with open('./../resource/vec.pickle', 'rb') as f:
@@ -110,17 +110,24 @@ if __name__ == '__main__':
         dataset = save['dataset']
         label = save['label']
         del save
+    with open('./../resource/test_vec.pickle', 'rb') as f:
+        save = pickle.load(f)
+        test_dataset = save['test_dataset']
+        del save
     with open('./../resource/dictionary.pickle', 'rb') as f:
         save = pickle.load(f)
         W = save['W']
         sentences_vec = save['sentences_vec']
+        test_sentences_vec = save['test_sentences_vec']
         del save
     # 将label转为one-hot编码形式
     label = reformat(label)
     # 将vector由list形式转换为ndarray形式
     vector = np.array(W)
     sentences_ids = sequence.pad_sequences(sentences_vec, maxlen=sen_max_len, truncating='post', padding='post')
+    test_sentences_ids = sequence.pad_sequences(test_sentences_vec, maxlen=sen_max_len, truncating='post', padding='post')
     sentences_ids_len = np.array([len(s) for s in sentences_vec])
+    test_sentences_ids_len = np.array([len(s) for s in test_sentences_vec])
     # 分割训练集和验证集
     train_word_vec = dataset[157:, :]
     train_sentences_ids = sentences_ids[157:, :]
@@ -136,6 +143,7 @@ if __name__ == '__main__':
           train_labels.shape)
     print('Validation set', valid_word_vec.shape, valid_sentences_ids.shape, valid_sentences_ids_len.shape,
           valid_labels.shape)
+    print('Test set', test_dataset.shape, test_sentences_ids.shape, test_sentences_ids_len.shape)
 
     with tf.Session() as sess:
         model = Model(sen_max_len=sen_max_len, words_vec=vector, lstm_num_units=lstm_num_units,
@@ -194,19 +202,34 @@ if __name__ == '__main__':
         else:
             model_file = tf.train.latest_checkpoint('./../resource/model/')
             saver.restore(sess, model_file)
-            feed_dic = {model.entity_vec: valid_word_vec,
-                        model.sen_ids: valid_sentences_ids,
-                        model.sen_len: valid_sentences_ids_len,
-                        model.labels: valid_labels,
+            feed_dic = {model.entity_vec: test_dataset,
+                        model.sen_ids: test_sentences_ids,
+                        model.sen_len: test_sentences_ids_len,
                         model.lstm_input_keep_prob: 1,
                         model.lstm_output_keep_prob: 1,
                         model.hidden_keep_prob: 1,
                         model.l2_loss_beta: l2_loss_beta}
-            valid_predictions = sess.run(model.prob, feed_dict=feed_dic)
-            print("Validation accuracy: %.1f%%" % accuracy(valid_predictions, valid_labels))
-            print('---------------------------------------------')
-            precision = precision_each_class(valid_predictions, valid_labels)
-            recall = recall_each_class(valid_predictions, valid_labels)
-            f1 = f1_each_class_precision_recall(precision, recall)
-            count = class_label_count(valid_labels)
-            print_out(precision, recall, f1, count)
+            test_predictions = sess.run(model.prob, feed_dict=feed_dic)
+            test_result = np.argmax(test_predictions, 1)
+            label = []
+            for result in test_result:
+                if result == 0 or result == 1:
+                    label.append("USAGE")
+                elif result ==2 or result == 3:
+                    label.append("RESULT")
+                elif result == 4 or result == 5:
+                    label.append("MODEL-FEATURE")
+                elif result == 6 or result == 7:
+                    label.append("PART_WHOLE")
+                elif result == 8 or result == 9:
+                    label.append("TOPIC")
+                elif result == 10:
+                    label.append("COMPARE")
+            final_result = []
+            with open('./../resource/1.1.test.relations.txt', 'r') as f:
+                stringList = f.readlines()
+                for i, string_wyd in enumerate(stringList):
+                    final_result.append(label[i]+string_wyd)
+            with open('./../resource/result.txt', 'w') as f:
+                for result in final_result:
+                    f.write(result)
