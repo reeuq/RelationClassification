@@ -24,14 +24,14 @@ def get_sentence(sentence, entity, tab2_string):
 
 
 if __name__ == "__main__":
-    dom = xml.dom.minidom.parse('./../resource/1.1.text.xml')
+    dom = xml.dom.minidom.parse('./../resource/original/1.1.text.xml')
     root = dom.documentElement
 
     entities = root.getElementsByTagName("entity")
     punc = string.punctuation.replace('-', '').replace('/', '')
 
     sentences = []
-    with open('./../resource/1.1.relations.txt', 'r') as f:
+    with open('./../resource/original/1.1.relations.txt', 'r') as f:
         stringList = f.readlines()
         for string_wyd in stringList:
             tab1_string = string_wyd[string_wyd.find('(') + 1:string_wyd.find(',')]
