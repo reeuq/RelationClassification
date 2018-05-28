@@ -95,13 +95,16 @@ def get_after_sentence(sentence, entity):
     else:
         return sentence
 
+
 if __name__ == "__main__":
     punc = string.punctuation.replace('-', '').replace('/', '')
     dom = xml.dom.minidom.parse('./../resource/original/1.1.text.xml')
     root = dom.documentElement
-
     entities = root.getElementsByTagName("entity")
-    punc = string.punctuation.replace('-', '').replace('/', '')
+
+    test_dom = xml.dom.minidom.parse('./../resource/original/1.1.test.text.xml')
+    test_root = test_dom.documentElement
+    test_entities = test_root.getElementsByTagName("entity")
 
     sentences = []
     sentences_len = []
@@ -119,17 +122,52 @@ if __name__ == "__main__":
                 tab2_string = string_wyd[string_wyd.find(',') + 1:string_wyd.find(',', string_wyd.find(',') + 1)]
             for entity in entities:
                 if entity.getAttribute("id") == tab1_string:
-                    before = get_before_sentence("", entity.previousSibling).translate(str.maketrans('/-', '  ', punc)).strip()
-                    entity1 = entity.firstChild.data.translate(str.maketrans('/-', '  ', punc)).strip()
-                    mid = get_sentence("", entity.nextSibling, tab2_string).translate(str.maketrans('/-', '  ', punc)).strip()
+                    before = get_before_sentence("", entity.previousSibling).translate(
+                        str.maketrans('/-', '  ', punc)).strip().lower()
+                    entity1 = entity.firstChild.data.translate(str.maketrans('/-', '  ', punc)).strip().lower()
+                    mid = get_sentence("", entity.nextSibling, tab2_string).translate(
+                        str.maketrans('/-', '  ', punc)).strip().lower()
                 if entity.getAttribute("id") == tab2_string:
-                    entity2 = entity.firstChild.data.translate(str.maketrans('/-', '  ', punc)).strip()
-                    after = get_after_sentence("", entity.nextSibling).translate(str.maketrans('/-', '  ', punc)).strip()
+                    entity2 = entity.firstChild.data.translate(str.maketrans('/-', '  ', punc)).strip().lower()
+                    after = get_after_sentence("", entity.nextSibling).translate(
+                        str.maketrans('/-', '  ', punc)).strip().lower()
                     sentences_len.append([len(before.split()), len(entity1.split()),
                                           len(mid.split()), len(entity2.split()), len(after.split())])
                     sentences.append(before + ' ' + entity1 + ' ' + mid + ' ' + entity2 + ' ' + after)
                     entityPairs_len.append(len(entity1.split()) + len(entity2.split()))
                     entityPairs.append(entity1 + ' ' + entity2)
+                    break
+
+    test_sentences = []
+    test_sentences_len = []
+    test_labels = []
+    test_entityPairs = []
+    test_entityPairs_len = []
+    with open('./../resource/original/keys.test.1.1.txt', 'r') as f:
+        stringList = f.readlines()
+        for string_wyd in stringList:
+            test_labels.append(category(string_wyd))
+            tab1_string = string_wyd[string_wyd.find('(') + 1:string_wyd.find(',')]
+            if string_wyd.find('REVERSE') == -1:
+                tab2_string = string_wyd[string_wyd.find(',') + 1:string_wyd.find(')')]
+            else:
+                tab2_string = string_wyd[string_wyd.find(',') + 1:string_wyd.find(',', string_wyd.find(',') + 1)]
+            for entity in test_entities:
+                if entity.getAttribute("id") == tab1_string:
+                    before = get_before_sentence("", entity.previousSibling).translate(
+                        str.maketrans('/-', '  ', punc)).strip().lower()
+                    entity1 = entity.firstChild.data.translate(str.maketrans('/-', '  ', punc)).strip().lower()
+                    mid = get_sentence("", entity.nextSibling, tab2_string).translate(
+                        str.maketrans('/-', '  ', punc)).strip().lower()
+                if entity.getAttribute("id") == tab2_string:
+                    entity2 = entity.firstChild.data.translate(str.maketrans('/-', '  ', punc)).strip().lower()
+                    after = get_after_sentence("", entity.nextSibling).translate(
+                        str.maketrans('/-', '  ', punc)).strip().lower()
+                    test_sentences_len.append([len(before.split()), len(entity1.split()),
+                                               len(mid.split()), len(entity2.split()), len(after.split())])
+                    test_sentences.append(before + ' ' + entity1 + ' ' + mid + ' ' + entity2 + ' ' + after)
+                    test_entityPairs_len.append(len(entity1.split()) + len(entity2.split()))
+                    test_entityPairs.append(entity1 + ' ' + entity2)
                     break
 
     with open('./../resource/newSentence.pickle', 'wb') as f:
@@ -138,7 +176,12 @@ if __name__ == "__main__":
             'sentencesLen': sentences_len,
             'labels': labels,
             'entityPairs': entityPairs,
-            'entityPairsLen': entityPairs_len
+            'entityPairsLen': entityPairs_len,
+            'test_sentences': test_sentences,
+            'test_sentences_len': test_sentences_len,
+            'test_labels': test_labels,
+            'test_entityPairs': test_entityPairs,
+            'test_entityPairs_len': test_entityPairs_len
         }
         pickle.dump(save, f, protocol=2)
     print("end")
