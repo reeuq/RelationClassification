@@ -171,17 +171,20 @@ if __name__ == "__main__":
                     break
 
     with open('./../resource/newSentence.pickle', 'wb') as f:
-        save = {
+        train = {
             'sentences': sentences,
-            'sentencesLen': sentences_len,
+            'sentences_len': sentences_len,
             'labels': labels,
             'entityPairs': entityPairs,
-            'entityPairsLen': entityPairs_len,
+            'entityPairs_len': entityPairs_len
+        }
+        test = {
             'test_sentences': test_sentences,
             'test_sentences_len': test_sentences_len,
             'test_labels': test_labels,
             'test_entityPairs': test_entityPairs,
             'test_entityPairs_len': test_entityPairs_len
         }
-        pickle.dump(save, f, protocol=2)
+        pickle.dump(train, f, protocol=2)
+        pickle.dump(test, f, protocol=2)
     print("end")
